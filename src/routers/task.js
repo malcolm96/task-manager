@@ -3,11 +3,33 @@ const router = new express.Router();
 const Task = require('../models/task');
 const auth = require('../middleware/auth');
 
+//GET /tasks -all tasks
+// /tasks?completed=false
+// pagination: limit , set
+// GET /tasks?limit=10&skip=0
+// GET /tasks?sortBy=createdAt:desc/:asc
 router.get('/tasks', auth,async (req,res) => {
+    const match = {}
+    const sort = {}
+    if(req.query.completed){
+        match.completed = req.query.completed === 'true'
+    }
+    if(req.query.sortBy){
+        const parts = req.query.sortBy.split(':')
+        sort[parts[0]] = parts[1] === 'desc' ? -1 : 1
+    }
+
     try{
         //const tasks = await Task.find({ owner:req.user._id});
-       await req.user.populate('tasks').execPopulate()
-
+        await req.user.populate({
+            path: 'tasks',
+            match,
+            options:{
+                limit: parseInt(req.query.limit),
+                skip:parseInt(req.query.skip),
+                sort
+            }
+        }).execPopulate()
         res.status(200).send(req.user.tasks);
     }catch (e) {
         res.status(500).send(e);
@@ -15,7 +37,7 @@ router.get('/tasks', auth,async (req,res) => {
 })
 
 router.get('/tasks/:id', auth,async (req, res) => {
-    const id = req.params.id;
+    const _id = req.params.id;
     try{
        // const task = await Task.findById(id);
         const task = await Task.findOne({ _id,owner:req.user._id})
